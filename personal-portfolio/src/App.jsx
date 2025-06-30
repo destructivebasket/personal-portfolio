@@ -5,20 +5,54 @@ import './App.css'
 
 function App() {
 
-  const [count, setCount] = useState(0);
+  const [flights, setFlights] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect( () => {
-    const seconds = setInterval( () => {
-      setCount(prev => prev + 1);
-      console.log(count);
-    }, 1000)
+  useEffect(() => {
+    const delay = setTimeout(async () => {
+      try {
+        const res = await fetch(`http://localhost:8081/api/google_flights?q=${encodeURIComponent(searchQuery)}`);
+        const data = await res.json();
 
-    return () => clearInterval(seconds);
-  }, []);
+        console.log(data);
 
+        const best = data.best_flights || [];
+        const other = data.other_flights || [];
+
+        const filteredFlights = [...best, ...other]
+          .flatMap(flight => flight.flights || [])
+          .map(segment => ({
+            departure_id: segment.departure_airport?.name || 'N/A',
+            arrival_id: segment.arrival_airport?.name || 'N/A',
+          }));
+
+        setFlights(filteredFlights || []);
+        console.log(filteredFlights);
+      } catch (err) {
+        console.error("Frontend fetch error:", err);
+      }
+    }, 300);
+
+    return () => clearTimeout(delay);
+  }, [searchQuery]);
+  
   return (
     <>
-      <h1> Seconds passing by: {count} </h1>
+      <input
+        placeholder='enter flight departure ID'
+        onChange = {(e) => setSearchQuery(e.target.value)}
+        value={searchQuery}
+      />
+
+      {searchQuery.length > 0 && (
+        <div>
+          {flights.map((f, index) => (
+            <ul key={index}>
+              <li>{f.departure_id} → {f.arrival_id}</li>
+            </ul>
+          ))}
+        </div>
+      )}
     </>
   )
 }
